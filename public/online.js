@@ -26,7 +26,7 @@ function askName(initial = "", note = "") {
     const inp = el("input", { class: "field", maxlength: "8", placeholder: "ニックネーム（1〜8もじ）", autocomplete: "off", value: initial, "aria-label": "ニックネーム" });
     const ok = btn("きめる", () => { const v = inp.value.trim(); if (!v) return inp.focus(); S.name = v; persist(); closeSheet(); res(v); });
     sheet([el("h3", { text: "ニックネームを きめよう" }), el("p", { text: note || "ほんとうの なまえは いれないでね" }), inp, el("div", { class: "row" }, [ok, btn("やめる", () => { closeSheet(); res(null); }, "btn alt")])], { dismiss: false });
-    inp.onkeydown = (e) => e.key === "Enter" && ok.click();
+    inp.onkeydown = (e) => { if (e.key === "Enter") ok.click(); };
     setTimeout(() => inp.focus(), 50);
   });
 }
@@ -195,7 +195,7 @@ function loginView() {
     try { await api("/api/teacher/login", { method: "POST", body: { passphrase: pass.value } }); pass.value = ""; teacherHome(); }
     catch (e) { err.textContent = e.status === 401 ? "合言葉が ちがいます" : e.status === 429 ? "しばらく待ってから もう一度どうぞ" : NET; go.disabled = false; }
   });
-  pass.onkeydown = (e) => e.key === "Enter" && go.click();
+  pass.onkeydown = (e) => { if (e.key === "Enter") go.click(); };
   tPage(tBar("先生モード"), el("p", { class: "center", text: "先生用の合言葉を入力してください" }), pass, err, go);
 }
 

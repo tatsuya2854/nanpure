@@ -12,6 +12,11 @@ const check = async (name, fn) => { try { await fn(); results.push(["ok", name])
 const FIXED_NOW = 1700000000000, SEED = (r) => "s" + r.toString(36).slice(2) + FIXED_NOW;
 const init = `Math.random=()=>0.5;const _n=Date.now;Date.now=()=>${FIXED_NOW};`;
 
+async function typ(page, sel, text) {
+  const l = page.locator(sel); await l.click(); await l.fill("");
+  await page.keyboard.type(text, { delay: 15 });
+  const v = await l.inputValue(); assert.equal(v.toLowerCase(), text.toLowerCase(), `キー入力が入力欄に入らない: ${sel}`);
+}
 async function overflow(page) {
   return page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, ph: innerHeight }));
 }
@@ -137,11 +142,11 @@ async function onlineSuite() {
     await teacher.click("#bTeacher");
     await teacher.locator("input[type=password]").waitFor();
     assert.equal(await teacher.locator("text=チャレンジを つくる").count(), 0);
-    await teacher.fill("input[type=password]", "wrong"); await teacher.click("text=ログイン");
+    await typ(teacher, "input[type=password]", "wrong"); await teacher.click("text=ログイン");
     await teacher.locator("text=合言葉が ちがいます").waitFor();
   });
   await T("先生: ログイン→むずかしさを選んで『つくる』の2操作で参加コードとQRが出る", async () => {
-    await teacher.fill("input[type=password]", "local-test-passphrase"); await teacher.click("text=ログイン");
+    await typ(teacher, "input[type=password]", "local-test-passphrase"); await teacher.click("text=ログイン");
     await teacher.locator("text=チャレンジを つくる").waitFor();
     const t0 = Date.now();
     await teacher.click("text=チャレンジを つくる");
@@ -163,7 +168,7 @@ async function onlineSuite() {
     const sp = seedOf(kid);
     await kid.goto(`${base}/#/join/${code}`); await skip(kid);
     assert.equal(await kid.locator(".code-in").inputValue(), code, "コードが自動入力される");
-    await kid.fill('input[aria-label="ニックネーム"]', "はなこ"); await kid.click("text=さんかする");
+    await typ(kid, 'input[aria-label="ニックネーム"]', "はなこ"); await kid.click("text=さんかする");
     await kid.locator("text=スタート！").waitFor();
     assert.ok((await kid.locator("#online").textContent()).includes("クラスチャレンジ"), "チャレンジ名");
     await kid.click("text=スタート！"); await kid.locator("#board .c").first().waitFor();
@@ -183,7 +188,7 @@ async function onlineSuite() {
   await T("別端末(iPad)の児童も同じ問題・同じコードで参加できる", async () => {
     const sp = seedOf(kid2);
     await kid2.goto(base); await skip(kid2); await kid2.click("#bClass");
-    await kid2.fill(".code-in", code.toLowerCase()); await kid2.fill('input[aria-label="ニックネーム"]', "たろう"); await kid2.click("text=さんかする");
+    await typ(kid2, ".code-in", code); await typ(kid2, 'input[aria-label="ニックネーム"]', "たろう"); await kid2.click("text=さんかする");
     await kid2.locator("text=スタート！").waitFor(); assert.equal(await sp, seed);
     await kid2.click("text=スタート！"); await kid2.locator("#board .c").first().waitFor();
     // 途中保存: 1マス入れてリロード → つづきから
@@ -206,7 +211,7 @@ async function onlineSuite() {
   await T("先生: チャレンジを終了すると 新しい児童は参加できない", async () => {
     await teacher.click("text=チャレンジを 終了する".replace(" ", "")); await teacher.waitForTimeout(500);
     const k3 = await (await wk.newContext({ ...devices["iPhone 13"] })).newPage(); await k3.goto(`${base}/#/join/${code}`); await skip(k3);
-    await k3.fill('input[aria-label="ニックネーム"]', "おそい"); await k3.click("text=さんかする");
+    await typ(k3, 'input[aria-label="ニックネーム"]', "おそい"); await k3.click("text=さんかする");
     await k3.locator("text=おわりました").waitFor();
   });
   await T("今日のチャレンジ: 参加→クリア→順位表示、ランキング画面で 自分が見える", async () => {
@@ -221,6 +226,19 @@ async function onlineSuite() {
     assert.match(await kid.locator("#sheet").textContent(), /\d+位/);
     await kid.locator("#sheet button", { hasText: "ホームへ" }).click();
     await kid.click("#bDaily"); await kid.locator("#online >> text=クリア！").first().waitFor();
+  });
+  await T("今日のチャレンジ: ニックネーム入力欄に実際に打て、Enterで決定できる", async () => {
+    const p = await (await wk.newContext({ ...devices["iPhone 13"] })).newPage();
+    await p.goto(base); await skip(p); await p.click("#bDaily"); await p.locator("text=ちょうせん").first().click();
+    await p.locator('input[aria-label="ニックネーム"]').waitFor();
+    await typ(p, 'input[aria-label="ニックネーム"]', "ゆうた"); await p.keyboard.press("Enter");
+    await p.locator("#board .c").first().waitFor();
+    assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem("nanpure-v2")).name), "ゆうた");
+  });
+  await T("先生: 合言葉の欄でEnterキーでもログインできる", async () => {
+    const p = await (await ch.newContext({ viewport: { width: 1000, height: 700 } })).newPage();
+    await p.goto(base); await skip(p); await p.click("#bTeacher"); await typ(p, "input[type=password]", "local-test-passphrase"); await p.keyboard.press("Enter");
+    await p.locator("text=チャレンジを つくる").waitFor();
   });
   await T("起動からホーム表示まで 3秒以内・ホームから問題開始まで 3タップ以内", async () => {
     const p = await (await wk.newContext({ ...devices["iPhone 13"] })).newPage(); const t0 = Date.now();

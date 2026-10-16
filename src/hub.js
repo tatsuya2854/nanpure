@@ -52,7 +52,12 @@ export class Hub extends DurableObject {
   }
 
   async fetch(req) {
-    try { return await this.route(req); }
+    try {
+      // Worker 側の合言葉(最新)と、この DO が起動時に読んだ合言葉が違えば、自分を作り直す（次のリクエストから新しい値）
+      const pv = req.headers.get("x-nanpure-pv");
+      if (pv && pv !== (await sha256hex("pv|" + (this.env.TEACHER_PASSPHRASE || ""))).slice(0, 16)) this.ctx.abort("secret changed");
+      return await this.route(req);
+    }
     catch (e) { if (e instanceof HttpError) return json({ error: e.message }, e.status); console.error("hub", e?.stack || e); return json({ error: "server" }, 500); }
   }
 
@@ -77,7 +82,7 @@ export class Hub extends DurableObject {
     }
     const ip = await sha256hex((req.headers.get("x-nanpure-ip") || "local") + "|nanpure");
 
-    if (p === "/api/health") return json({ ok: true });
+    if (p === "/api/health") return json({ ok: true, teacherConfigured: Boolean(this.env.TEACHER_PASSPHRASE)});
 
     /* ---- 今日のチャレンジ ---- */
     if (p === "/api/daily" && m === "GET") {
