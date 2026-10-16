@@ -1,14 +1,10 @@
 :root{
-  --bg:#f3f5fb;--card:#fff;--ink:#1c2542;--sub:#5d6788;--line:#cfd6ea;--thick:#1c2542;
+  --bg:#fafbff;--card:#fff;--ink:#1c2542;--sub:#5d6788;--line:#cfd6ea;--thick:#1c2542;
   --main:#3b5bdb;--main-d:#2f49b0;--accent:#f59f00;--ok:#2b9a57;--bad:#c92a5b;
   --given:#eef0f6;--sel:#ffe58a;--hl:#d3e0ff;--same:#b9d0ff;--user:#2f49b0;
   --r:18px;--gap:14px;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#12172b;--card:#1c2340;--ink:#eef1ff;--sub:#a3acd0;--line:#3a4570;--thick:#cdd6ff;
-  --main:#6d8bff;--main-d:#8aa2ff;--accent:#ffb62e;--ok:#4cc27f;--bad:#ff6b9a;
-  --given:#262e52;--sel:#7a6216;--hl:#35458a;--same:#44589f;--user:#9db3ff;color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
   font-family:"Hiragino Maru Gothic ProN","BIZ UDPGothic","Yu Gothic UI","Yu Gothic",system-ui,sans-serif;font-size:16px}
