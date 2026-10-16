@@ -1,19 +1,11 @@
 // 実ブラウザ操作テスト: node test/e2e.mjs （public/ を静的配信して操作する）
-import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
 import assert from "node:assert/strict";
 import { chromium, webkit, devices } from "playwright";
+import jsQR from "jsqr";
 import { generate, CONFIGS } from "../public/engine.js";
 
-const root = path.resolve("public");
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
-const server = http.createServer((q, r) => {
-  const f = path.join(root, q.url === "/" ? "index.html" : q.url.split("?")[0]);
-  if (!f.startsWith(root) || !fs.existsSync(f)) { r.writeHead(404).end(); return; }
-  r.writeHead(200, { "content-type": types[path.extname(f)] || "text/plain" }).end(fs.readFileSync(f));
-}).listen(0);
-const base = `http://localhost:${server.address().port}`;
+const base = process.env.BASE || "http://localhost:8799"; // wrangler dev を起動しておく
+const server = { close() {} };
 const results = [];
 const check = async (name, fn) => { try { await fn(); results.push(["ok", name]); } catch (e) { results.push(["NG", name + " : " + e.message.split("\n")[0]]); } };
 
@@ -126,6 +118,120 @@ async function suite(label, browserType, device) {
   await browser.close();
 }
 
+
+/* ---------- 先生 → 児童 → 結果 の一連の流れ ---------- */
+async function onlineSuite() {
+  const T = (n, f) => check(`[オンライン] ${n}`, f);
+  const wk = await webkit.launch(), ch = await chromium.launch();
+  const tctx = await ch.newContext({ viewport: { width: 1100, height: 800 }, locale: "ja-JP" });
+  const kctx = await wk.newContext({ ...devices["iPhone 13"], locale: "ja-JP" });
+  const kctx2 = await wk.newContext({ ...devices["iPad Mini"], locale: "ja-JP" });
+  const teacher = await tctx.newPage(), kid = await kctx.newPage(), kid2 = await kctx2.newPage();
+  const errs = []; for (const p of [teacher, kid, kid2]) { p.on("pageerror", (e) => errs.push(e.message)); }
+  const skip = async (p) => { await p.locator("#home:not([hidden]), #online:not([hidden])").first().waitFor(); const b = p.locator("#sheet button", { hasText: "スキップ" }); if (await b.count()) await b.click(); };
+  let code, seed, level;
+  const seedOf = (p) => new Promise((res) => p.on("response", async (r) => { if (r.url().endsWith("/api/class/join") && r.ok()) { const j = await r.json(); res(j.challenge.seed); } }));
+
+  await T("先生モード: ログインしないと 作成画面に入れない・まちがった合言葉は拒否", async () => {
+    await teacher.goto(base); await skip(teacher);
+    await teacher.click("#bTeacher");
+    await teacher.locator("input[type=password]").waitFor();
+    assert.equal(await teacher.locator("text=チャレンジを つくる").count(), 0);
+    await teacher.fill("input[type=password]", "wrong"); await teacher.click("text=ログイン");
+    await teacher.locator("text=合言葉が ちがいます").waitFor();
+  });
+  await T("先生: ログイン→むずかしさを選んで『つくる』の2操作で参加コードとQRが出る", async () => {
+    await teacher.fill("input[type=password]", "local-test-passphrase"); await teacher.click("text=ログイン");
+    await teacher.locator("text=チャレンジを つくる").waitFor();
+    const t0 = Date.now();
+    await teacher.click("text=チャレンジを つくる");
+    await teacher.locator(".code").waitFor(); await teacher.locator(".qr svg").waitFor();
+    code = (await teacher.locator(".code").textContent()).replace("タップで コピー", "").trim();
+    assert.match(code, /^[A-HJ-KM-NP-Z2-9]{6}$/); assert.ok(Date.now() - t0 < 5000);
+  });
+  await T("QRコードを読み取ると 参加URLだけ(コード以外の情報なし)", async () => {
+    const px = await teacher.evaluate(async () => {
+      const svg = document.querySelector(".qr svg"), xml = new XMLSerializer().serializeToString(svg);
+      const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml.replace("<svg", '<svg width="400" height="400"'));
+      await img.decode(); const c = document.createElement("canvas"); c.width = c.height = 400; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 400, 400); x.drawImage(img, 0, 0, 400, 400);
+      return Array.from(x.getImageData(0, 0, 400, 400).data);
+    });
+    const r = jsQR(Uint8ClampedArray.from(px), 400, 400);
+    assert.ok(r, "QRが読めない"); assert.equal(r.data, `${base}/#/join/${code}`);
+  });
+  await T("児童: QRのURLを開くだけで参加画面→ニックネームで参加→スタート→同じ問題を解いてクリア", async () => {
+    const sp = seedOf(kid);
+    await kid.goto(`${base}/#/join/${code}`); await skip(kid);
+    assert.equal(await kid.locator(".code-in").inputValue(), code, "コードが自動入力される");
+    await kid.fill('input[aria-label="ニックネーム"]', "はなこ"); await kid.click("text=さんかする");
+    await kid.locator("text=スタート！").waitFor();
+    assert.ok((await kid.locator("#online").textContent()).includes("クラスチャレンジ"), "チャレンジ名");
+    await kid.click("text=スタート！"); await kid.locator("#board .c").first().waitFor();
+    seed = await sp; level = "e";
+    assert.equal(await kid.locator("#board .c").count(), 16);
+    const { puzzle } = generate(level, seed);
+    for (let i = 0; i < 16; i++) assert.equal((await kid.locator("#board .c").nth(i).textContent()).trim(), puzzle[i] ? String(puzzle[i]) : "", "同じ問題 マス" + i);
+    assert.equal(await kid.locator("#gHintN").textContent(), "3", "ヒント残数");
+    await kid.waitForTimeout(5500);
+    await solve(kid, level, seed);
+    await kid.locator("#sheet", { hasText: "クラスで 1人が クリア" }).waitFor({ timeout: 5000 });
+  });
+  await T("ランキングOFF(初期設定)では 児童に他の児童の名前・順位が出ない", async () => {
+    const txt = await kid.locator("#sheet").textContent();
+    assert.ok(!txt.includes("位")); assert.ok(!txt.includes("(あなた)"));
+  });
+  await T("別端末(iPad)の児童も同じ問題・同じコードで参加できる", async () => {
+    const sp = seedOf(kid2);
+    await kid2.goto(base); await skip(kid2); await kid2.click("#bClass");
+    await kid2.fill(".code-in", code.toLowerCase()); await kid2.fill('input[aria-label="ニックネーム"]', "たろう"); await kid2.click("text=さんかする");
+    await kid2.locator("text=スタート！").waitFor(); assert.equal(await sp, seed);
+    await kid2.click("text=スタート！"); await kid2.locator("#board .c").first().waitFor();
+    // 途中保存: 1マス入れてリロード → つづきから
+    const { puzzle, solution } = generate(level, seed), i = puzzle.findIndex((v) => !v);
+    await kid2.locator("#board .c").nth(i).dispatchEvent("pointerdown"); await kid2.keyboard.press(String(solution[i]));
+    await kid2.waitForTimeout(400); await kid2.reload(); await skip(kid2);
+    assert.ok(await kid2.locator("#bResume").isEnabled()); await kid2.click("#bResume");
+    await kid2.locator("#board .c").nth(i).waitFor(); assert.equal((await kid2.locator("#board .c").nth(i).textContent()).trim(), String(solution[i]), "クラス挑戦も再開できる");
+    await kid2.waitForTimeout(5500); await solve(kid2, level, seed);
+    await kid2.locator("#sheet", { hasText: "クラスで 2人が クリア" }).waitFor({ timeout: 5000 });
+  });
+  await T("先生: 結果画面に 参加2/クリア2/クリア率100%/平均時間/ノーヒント が大きく出る・ランキングOFFなら名前は出ない", async () => {
+    await teacher.click("text=結果を見る");
+    await teacher.locator(".bigstat").first().waitFor();
+    const t = (await teacher.locator(".bigstats").textContent());
+    for (const w of ["参加人数2", "クリア人数2", "100%", "ノーヒント2"]) assert.ok(t.replace(/\s/g, "").includes(w), w + " / " + t);
+    assert.ok(!(await teacher.locator("#teacher").textContent()).includes("はなこ"));
+    assert.equal((await teacher.locator(".bigstats").boundingBox()).width > 300, true);
+  });
+  await T("先生: チャレンジを終了すると 新しい児童は参加できない", async () => {
+    await teacher.click("text=チャレンジを 終了する".replace(" ", "")); await teacher.waitForTimeout(500);
+    const k3 = await (await wk.newContext({ ...devices["iPhone 13"] })).newPage(); await k3.goto(`${base}/#/join/${code}`); await skip(k3);
+    await k3.fill('input[aria-label="ニックネーム"]', "おそい"); await k3.click("text=さんかする");
+    await k3.locator("text=おわりました").waitFor();
+  });
+  await T("今日のチャレンジ: 参加→クリア→順位表示、ランキング画面で 自分が見える", async () => {
+    await kid.goto(base); await kid.click("#bDaily");
+    await kid.locator("text=ちょうせん").first().waitFor();
+    const s = await (await fetch(`${base}/api/daily?level=e`)).json();
+    await kid.locator("text=ちょうせん").first().click();
+    await kid.locator("#board .c").first().waitFor();
+    assert.equal(await kid.locator("#board .c").count(), 16);
+    await kid.waitForTimeout(5500); await solve(kid, "e", s.seed);
+    await kid.locator("#sheet", { hasText: "きょうの" }).waitFor({ timeout: 5000 });
+    assert.match(await kid.locator("#sheet").textContent(), /\d+位/);
+    await kid.locator("#sheet button", { hasText: "ホームへ" }).click();
+    await kid.click("#bDaily"); await kid.locator("#online >> text=クリア！").first().waitFor();
+  });
+  await T("起動からホーム表示まで 3秒以内・ホームから問題開始まで 3タップ以内", async () => {
+    const p = await (await wk.newContext({ ...devices["iPhone 13"] })).newPage(); const t0 = Date.now();
+    await p.goto(base); await p.locator("#bSolo").waitFor(); const load = Date.now() - t0;
+    await skip(p); await p.click("#bSolo"); await p.locator(".lvl").first().click(); await p.locator("#board .c").first().waitFor();
+    assert.ok(load < 3000, "起動 " + load + "ms");
+  });
+  await T("コンソールエラーなし(オンライン)", async () => assert.deepEqual(errs, []));
+  await wk.close(); await ch.close();
+}
+
 const matrix = [
   ["iPhone SE", webkit, devices["iPhone SE"]],
   ["iPhone 13", webkit, devices["iPhone 13"]],
@@ -134,8 +240,9 @@ const matrix = [
   ["PC", chromium, { viewport: { width: 1280, height: 720 } }],
 ];
 const only = process.argv[2];
+if (only === "online") { await onlineSuite(); } else {
 for (const [l, b, d] of matrix) if (!only || l.includes(only)) await suite(l, b, d);
-server.close();
+if (!only) await onlineSuite(); }
 for (const [s, m] of results) console.log(s === "ok" ? "✔" : "✘", m);
 const ng = results.filter((r) => r[0] !== "ok").length;
 console.log(`\n${results.length - ng}/${results.length} 通過`);

@@ -33,7 +33,7 @@ function loadStore() {
 const S = loadStore();
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 export const store = S;
-export { persist, fmt, el, icon, $, LV };
+export { persist, fmt, el, icon, $, LV, TITLE_OF };
 
 const total = (s) => s.clears.e + s.clears.m + s.clears.h;
 const TITLES = [
@@ -49,9 +49,8 @@ const TITLES = [
 ];
 
 /* ===== 画面 ===== */
-const screens = ["home", "levels", "game", "profile", "teacher"];
 export function show(id) {
-  for (const s of screens) $("#" + s).hidden = s !== id;
+  document.querySelectorAll(".screen").forEach((s) => (s.hidden = s.id !== id));
   if (id === "home") refreshHome();
   window.scrollTo(0, 0);
 }
@@ -68,7 +67,7 @@ export const closeSheet = () => { $("#overlay").hidden = true; };
 function refreshHome() {
   const sv = S.save;
   $("#bResume").disabled = !sv;
-  $("#resumeInfo").textContent = sv ? `${LV[sv.level].size} ${LV[sv.level].label} ・ ${fmt(sv.elapsed)}` : "";
+  $("#resumeInfo").textContent = sv ? `${sv.title || LV[sv.level].size + " " + LV[sv.level].label} ・ ${fmt(sv.elapsed)}` : "";
   $("#bSound").lastChild.textContent = "おと:" + (S.sound ? "ON" : "OFF");
   $("#bSound").setAttribute("aria-pressed", S.sound);
   const n = total(S);
@@ -192,10 +191,10 @@ function onTick() {
 document.addEventListener("visibilitychange", () => { if (G) { G.last = performance.now(); saveGame(); } });
 addEventListener("pagehide", () => saveGame());
 
-const savable = () => G && !G.done && !G.tutorial && (G.mode === "solo" || G.mode === "five");
+const savable = () => G && !G.done && !G.tutorial;
 function saveGame() {
   if (!savable() || G.cur.every((v, i) => v === G.puzzle[i]) && !G.elapsed) return;
-  S.save = { mode: G.mode, level: G.level, seed: G.seed, cur: G.cur, notes: G.notes, hintsUsed: G.hintsUsed, elapsed: Math.floor(G.elapsed) };
+  S.save = { mode: G.mode, level: G.level, seed: G.seed, title: G.title, code: G.code, date: G.date, hintsMax: G.hintsMax, cur: G.cur, notes: G.notes, hintsUsed: G.hintsUsed, elapsed: Math.floor(G.elapsed) };
   persist();
 }
 
@@ -270,9 +269,9 @@ function tutorialInput(i, v) {
 async function finish() {
   G.done = true; clearInterval(tick);
   const sec = Math.round(G.elapsed), lv = G.level, h = G.hintsUsed;
-  if (G.mode === "solo" || G.mode === "five") { S.save = null; }
+  S.save = null;
   const b = S.best[lv];
-  const isBest = G.mode !== "class" && (!b || h < b.hints || (h === b.hints && sec < b.sec));
+  const isBest = (!b || h < b.hints || (h === b.hints && sec < b.sec));
   const prevBest = b;
   if (isBest) S.best[lv] = { sec, hints: h };
   S.clears[lv]++; if (!h) S.noHint++;
@@ -287,6 +286,7 @@ async function finish() {
     el("div", { class: "bigtime", text: fmt(sec) }),
     el("p", { text: h ? `ヒント ${h}かい つかったよ` : "ヒントなしで クリア！" }),
   ];
+  if (!h) nodes.push(el("span", { class: "badge" }, [icon("star"), document.createTextNode("ノーヒントクリア！")]));
   if (isBest) nodes.push(el("span", { class: "badge" }, [icon("star"), document.createTextNode(prevBest ? "じこベスト こうしん！" : "さいしょの きろく！")]));
   else if (prevBest) nodes.push(el("p", { text: `じこベスト ${fmt(prevBest.sec)}（ヒント${prevBest.hints}かい）` }));
   for (const t of fresh) nodes.push(el("span", { class: "badge" }, [icon("medal"), document.createTextNode("しょうごう「" + t.n + "」")]));
@@ -347,7 +347,11 @@ function howto() {
 /* ===== 配線 ===== */
 $("#bSolo").onclick = () => openLevels("solo");
 $("#bFive").onclick = () => openLevels("five");
-$("#bResume").onclick = () => { const s = S.save; if (s) startGame({ level: s.level, mode: s.mode, seed: s.seed, resume: s }); };
+$("#bResume").onclick = async () => {
+  const s = S.save; if (!s) return;
+  if (s.mode === "class" || s.mode === "daily") return (await import("./online.js")).resume(s);
+  startGame({ level: s.level, mode: s.mode, seed: s.seed, resume: s, hintsMax: s.hintsMax });
+};
 $("#bProfile").onclick = openProfile; $("#bHow").onclick = howto;
 $("#bSound").onclick = () => { S.sound = !S.sound; persist(); refreshHome(); if (S.sound) chime(); };
 document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = () => show("home")));
@@ -357,7 +361,10 @@ $("#tNote").onclick = () => setNote(!G.noteMode); $("#tErase").onclick = () => i
 $("#bReset").onclick = () => sheet([el("h3", { text: "きろくを けす？" }), el("p", { text: "しょうごうも ベストも ぜんぶ きえます" }),
   el("div", { class: "row" }, [Object.assign(el("button", { class: "btn", text: "けす" }), { onclick: () => { Object.assign(S, defaults(), { tutorialDone: true }); persist(); closeSheet(); openProfile(); } }),
     Object.assign(el("button", { class: "btn alt", text: "やめる" }), { onclick: closeSheet })])]);
-for (const id of ["bDaily", "bClass", "bTeacher"]) $("#" + id).onclick = () => toast("じゅんびちゅう です");
+const online = (fn) => async () => { try { (await import("./online.js"))[fn](); } catch (e) { console.error(e); toast("よみこめませんでした。もういちど ためしてね"); } };
+$("#bDaily").onclick = online("openDaily"); $("#bClass").onclick = online("openClass"); $("#bTeacher").onclick = online("openTeacher");
+const m = /^#\/join\/([A-Za-z0-9]{6})$/.exec(location.hash);
+if (m) import("./online.js").then((o) => { history.replaceState(null, "", location.pathname); o.openClass(m[1].toUpperCase()); });
 
 addEventListener("keydown", (e) => {
   if (!G || $("#game").hidden || !$("#overlay").hidden || e.target.matches("input,textarea")) return;
