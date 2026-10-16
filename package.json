@@ -1,0 +1,11 @@
+{
+  "name": "nanpure",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/engine.test.mjs",
+    "e2e": "node test/e2e.mjs",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": { "playwright": "^1.60.0", "wrangler": "^4.134.0" }
+}

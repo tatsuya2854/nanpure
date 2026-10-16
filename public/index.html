@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3b5bdb">
+<title>ナンプレスクール</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h10a6 6 0 010 8h-3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 7l5 5-5 5M20 12H10a6 6 0 000 8h3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19l-5 1zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-erase" viewBox="0 0 24 24"><path d="M4 16l9-10 7 7-5 6H8zM8 20h12M9 11l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M4 7h16v13H4zM4 11h16M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 20c0-3.5 2.7-5.5 6-5.5s6 2 6 5.5M16 5.3a3.2 3.2 0 010 5.9M18 14.8c2 .6 3.5 2.2 3.5 5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-resume" viewBox="0 0 24 24"><path d="M5 12a7 7 0 112.5 5.4M5 5v5h5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-medal" viewBox="0 0 24 24"><circle cx="12" cy="15" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 10.5L6 3h4l2 5 2-5h4l-2.5 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.5 9.5a2.6 2.6 0 115 .8c0 1.6-2.5 1.8-2.5 3.4M12 17v.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9a4 4 0 010 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+</svg>
+
+<main id="app">
+  <section id="home" class="screen" hidden>
+    <div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>ナンプレスクール</h1><p id="homeSub">すうじを ならべて パズルをとこう</p></div>
+    <div class="menu">
+      <button class="big primary" id="bSolo"><svg><use href="#i-play"/></svg><span>ひとりであそぶ</span></button>
+      <button class="big" id="bDaily"><svg><use href="#i-cal"/></svg><span>きょうのチャレンジ</span></button>
+      <button class="big" id="bClass"><svg><use href="#i-users"/></svg><span>クラスチャレンジ</span></button>
+      <button class="big" id="bResume"><svg><use href="#i-resume"/></svg><span>つづきから<small id="resumeInfo"></small></span></button>
+    </div>
+    <nav class="sub">
+      <button id="bFive">5分チャレンジ</button>
+      <button id="bProfile">しょうごう</button>
+      <button id="bHow">あそびかた</button>
+      <button id="bSound" aria-pressed="false"><svg><use href="#i-sound"/></svg>おと:OFF</button>
+    </nav>
+    <button class="teacher" id="bTeacher">先生モード</button>
+  </section>
+
+  <section id="levels" class="screen" hidden>
+    <header class="bar"><button class="icon" data-back aria-label="もどる"><svg><use href="#i-back"/></svg></button><h2 id="levelsTitle">むずかしさを えらぼう</h2><span></span></header>
+    <div class="levelList" id="levelList"></div>
+  </section>
+
+  <section id="game" class="screen" hidden>
+    <header class="bar"><button class="icon" id="gBack" aria-label="ホームへ"><svg><use href="#i-back"/></svg></button>
+      <div class="hud"><span class="tag" id="gTitle"></span><span class="time" id="gTime">0:00</span></div>
+      <button class="chip" id="gHint"><svg><use href="#i-bulb"/></svg><span id="gHintN">3</span></button></header>
+    <p class="coach" id="coach" hidden></p>
+    <div id="board" role="grid" aria-label="ナンプレの ばんめん"></div>
+    <div class="tools">
+      <button id="tUndo"><svg><use href="#i-undo"/></svg>もどす</button>
+      <button id="tRedo"><svg><use href="#i-redo"/></svg>やりなおし</button>
+      <button id="tNote" aria-pressed="false"><svg><use href="#i-pencil"/></svg>メモ</button>
+      <button id="tErase"><svg><use href="#i-erase"/></svg>けす</button>
+    </div>
+    <div id="pad"></div>
+  </section>
+
+  <section id="profile" class="screen" hidden>
+    <header class="bar"><button class="icon" data-back aria-label="もどる"><svg><use href="#i-back"/></svg></button><h2>しょうごう</h2><span></span></header>
+    <div class="stats" id="stats"></div>
+    <div class="titleList" id="titleList"></div>
+    <button class="ghost" id="bReset">きろくを ぜんぶ けす</button>
+  </section>
+
+  <section id="teacher" class="screen" hidden></section>
+</main>
+
+<div id="overlay" hidden><div class="sheet" id="sheet"></div></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div id="toast" role="status"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

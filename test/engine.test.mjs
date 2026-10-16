@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONFIGS, generate, countSolutions, solveLogic, isValidSolution, jstDate } from "../src/engine.js";
+import { CONFIGS, generate, countSolutions, solveLogic, isValidSolution, jstDate } from "../public/engine.js";
 
 for (const lv of Object.keys(CONFIGS)) {
   test(`${lv}: 20問すべて 一意解・論理で解ける・解が正しい`, () => {
